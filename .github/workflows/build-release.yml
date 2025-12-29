@@ -1,0 +1,77 @@
+name: Build and Release DEB Package
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  schedule:
+    # 每天运行一次，检查是否有更新
+    - cron: '0 0 * * *'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+      with:
+        submodules: 'recursive'
+    
+    - name: Set up environment
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y git dpkg-dev dpkg curl python3
+    
+    - name: Build DEB package
+      run: |
+        cd scripts
+        bash build.sh
+      shell: bash
+    
+    - name: Upload DEB package as artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: raspberry-pi-docs-deb
+        path: deb-pkg/raspberry-pi-docs-latest.deb
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Download DEB artifact
+      uses: actions/download-artifact@v3
+      with:
+        name: raspberry-pi-docs-deb
+        path: dist
+    
+    - name: Create Release
+      id: create_release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: v${{ github.run_number }}
+        release_name: Release v${{ github.run_number }}
+        body: |
+          自动构建的DEB包
+          - 包含最新的树莓派文档
+          - 支持IPv4和IPv6访问
+          - 自动更新功能
+        draft: false
+        prerelease: false
+    
+    - name: Upload Release Asset
+      id: upload-release-asset
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: dist/raspberry-pi-docs-latest.deb
+        asset_name: raspberry-pi-docs.deb
+        asset_content_type: application/vnd.debian.binary-package
