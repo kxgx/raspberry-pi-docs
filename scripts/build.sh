@@ -207,7 +207,7 @@ dpkg-deb --build raspberry-pi-docs-build
 
 # 移动DEB包到项目根目录
 mkdir -p deb-pkg
-  mv /tmp/raspberry-pi-docs-build/raspberry-pi-docs-latest.deb ./deb-pkg/raspberry-pi-docs-latest.deb
+  mv /tmp/raspberry-pi-docs-build.deb ./deb-pkg/raspberry-pi-docs-latest.deb
 
 # 复制到预期的输出目录
 mkdir -p /home/runner/work/raspberry-pi-docs/raspberry-pi-docs/deb-pkg 2>/dev/null || true  # For GitHub Actions
