@@ -199,7 +199,6 @@ chmod +x $BUILD_DIR/usr/share/raspberry-pi-docs/update_docs_clean.sh
 
 # 创建一个示例文档目录结构（模拟预构建的文档）
 mkdir -p $BUILD_DIR/opt/raspberry-pi-docs/documentation
-echo "<html><body><h1>Placeholder for Raspberry Pi Documentation</h1><p>This is a placeholder. The actual documentation will be downloaded from GitHub.</p></body></html>" > $BUILD_DIR/opt/raspberry-pi-docs/documentation/index.html
 
 # 构建DEB包
 cd /tmp
