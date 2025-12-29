@@ -205,7 +205,7 @@ exit 0
 POSTRM_EOF
 
 # 复制更新脚本
-cp ./scripts/update_docs_clean.sh $BUILD_DIR/usr/share/raspberry-pi-docs/
+cp ./update_docs_clean.sh $BUILD_DIR/usr/share/raspberry-pi-docs/
 
 # 设置脚本权限
 chmod +x $BUILD_DIR/DEBIAN/preinst $BUILD_DIR/DEBIAN/postinst $BUILD_DIR/DEBIAN/postrm
