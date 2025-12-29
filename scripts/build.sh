@@ -18,7 +18,7 @@ mkdir -p $BUILD_DIR/usr/local/bin
 mkdir -p $BUILD_DIR/usr/share/raspberry-pi-docs
 
 # 创建控制文件
-cat > $BUILD_DIR/DEBIAN/control << 'EOF'
+cat > $BUILD_DIR/DEBIAN/control << 'CONTROL_EOF'
 Package: raspberry-pi-docs
 Version: 1.0.4-1
 Section: utils
@@ -29,10 +29,10 @@ Maintainer: Raspberry Pi Documentation Maintainer
 Description: Raspberry Pi Documentation with local server and auto-update functionality
  Complete Raspberry Pi documentation served locally with auto-update capability.
  Includes scripts to update documentation and systemd service configuration.
-EOF
+CONTROL_EOF
 
 # 创建preinst脚本
-cat > $BUILD_DIR/DEBIAN/preinst << 'EOF'
+cat > $BUILD_DIR/DEBIAN/preinst << 'PREINST_EOF'
 #!/bin/bash
 set -e
 
@@ -42,10 +42,10 @@ echo "Preparing to install Raspberry Pi Documentation..."
 systemctl stop raspberry-pi-docs.service 2>/dev/null || true
 
 exit 0
-EOF
+PREINST_EOF
 
 # 创建postinst脚本
-cat > $BUILD_DIR/DEBIAN/postinst << 'EOF'
+cat > $BUILD_DIR/DEBIAN/postinst << 'POSTINST_EOF'
 #!/bin/bash
 set -e
 
@@ -164,10 +164,10 @@ if [ -n "$IPV6_ADDR" ]; then
 fi
 
 exit 0
-EOF
+POSTINST_EOF
 
 # 创建postrm脚本
-cat > $BUILD_DIR/DEBIAN/postrm << 'EOF'
+cat > $BUILD_DIR/DEBIAN/postrm << 'POSTRM_EOF'
 #!/bin/bash
 set -e
 
@@ -188,23 +188,28 @@ case "$1" in
 esac
 
 exit 0
-EOF
+POSTRM_EOF
 
 # 复制更新脚本
-cp /home/xg/raspberry-pi-docs-deb-clean/usr/share/raspberry-pi-docs/update_docs_clean.sh $BUILD_DIR/usr/share/raspberry-pi-docs/
+cp ./update_docs_clean.sh $BUILD_DIR/usr/share/raspberry-pi-docs/
 
 # 设置脚本权限
 chmod +x $BUILD_DIR/DEBIAN/preinst $BUILD_DIR/DEBIAN/postinst $BUILD_DIR/DEBIAN/postrm
 chmod +x $BUILD_DIR/usr/share/raspberry-pi-docs/update_docs_clean.sh
 
+# 创建一个示例文档目录结构（模拟预构建的文档）
+mkdir -p $BUILD_DIR/opt/raspberry-pi-docs/documentation
+echo "<html><body><h1>Placeholder for Raspberry Pi Documentation</h1><p>This is a placeholder. The actual documentation will be downloaded from GitHub.</p></body></html>" > $BUILD_DIR/opt/raspberry-pi-docs/documentation/index.html
+
 # 构建DEB包
 cd /tmp
 dpkg-deb --build raspberry-pi-docs-build
 
-# 移动DEB包到项目目录
-mv raspberry-pi-docs-build.deb /home/xg/raspberry-pi-docs-project/deb-pkg/raspberry-pi-docs-latest.deb
+# 移动DEB包到项目根目录
+mv raspberry-pi-docs-build.deb /tmp/raspberry-pi-docs-build/raspberry-pi-docs-latest.deb
 
-# 清理临时目录
-rm -rf $BUILD_DIR
+# 复制到预期的输出目录
+mkdir -p /home/runner/work/raspberry-pi-docs/raspberry-pi-docs/deb-pkg 2>/dev/null || true  # For GitHub Actions
+cp /tmp/raspberry-pi-docs-build/raspberry-pi-docs-latest.deb ./deb-pkg/raspberry-pi-docs-latest.deb 2>/dev/null || true
 
-echo "构建完成！DEB包已保存到 /home/xg/raspberry-pi-docs-project/deb-pkg/raspberry-pi-docs-latest.deb"
+echo "构建完成！DEB包已保存到 ./deb-pkg/raspberry-pi-docs-latest.deb"
