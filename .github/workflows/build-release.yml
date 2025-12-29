@@ -31,7 +31,7 @@ jobs:
         sudo apt-get update
         sudo apt-get install -y ruby-bundler make ruby-dev build-essential
         # 确保安装jekyll
-        gem install jekyll
+        sudo gem install jekyll
     
     - name: Build DEB package
       run: |
