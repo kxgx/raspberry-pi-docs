@@ -63,8 +63,8 @@ if [ ! -d "$DOC_REPO_DIR" ]; then
         echo "克隆文档仓库失败，尝试使用预构建的文档..."
         # 如果克隆失败，使用预构建的文档
         if [ -d "/opt/raspberry-pi-docs/documentation" ]; then
-            cp -r /opt/raspberry-pi-docs/documentation/* /opt/raspberry-pi-docs/
-            rm -rf /opt/raspberry-pi-docs/documentation
+            cp -r /opt/raspberry-pi-docs/documentation/* /opt/raspberry-pi-docs/ 2>/dev/null || true
+            rm -rf /opt/raspberry-pi-docs/documentation 2>/dev/null || true
         else
             echo "错误：没有可用的文档源"
             exit 1
@@ -100,7 +100,7 @@ else
     # 如果没有构建好的文档，使用预构建的文档
     if [ -d "/opt/raspberry-pi-docs/documentation" ]; then
         echo "使用预构建的文档..."
-        cp -r /opt/raspberry-pi-docs/documentation/* /opt/raspberry-pi-docs-new/documentation/
+        cp -r /opt/raspberry-pi-docs/documentation/* /opt/raspberry-pi-docs-new/documentation/ 2>/dev/null || true
     else
         echo "错误：没有可用的文档"
         exit 1
@@ -191,7 +191,7 @@ exit 0
 POSTRM_EOF
 
 # 复制更新脚本
-cp ./update_docs_clean.sh $BUILD_DIR/usr/share/raspberry-pi-docs/
+cp ./scripts/update_docs_clean.sh $BUILD_DIR/usr/share/raspberry-pi-docs/
 
 # 设置脚本权限
 chmod +x $BUILD_DIR/DEBIAN/preinst $BUILD_DIR/DEBIAN/postinst $BUILD_DIR/DEBIAN/postrm
