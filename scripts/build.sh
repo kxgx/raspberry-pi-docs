@@ -51,91 +51,53 @@ set -e
 
 echo "Configuring Raspberry Pi Documentation..."
 
-# 检查是否需要构建文档
-if [ -f "/opt/raspberry-pi-docs/.needs_build" ]; then
-    echo "检测到需要构建文档..."
-    
-    # 检查是否有构建工具
-    if command -v bundle >/dev/null 2>&1 && command -v make >/dev/null 2>&1; then
-        echo "安装依赖并构建文档..."
-        cd /opt/raspberry-pi-docs/documentation_src || { echo "无法进入文档源目录"; exit 1; }
-        
-        # 安装依赖
-        bundle install 2>/dev/null || echo "安装依赖失败，继续构建"
-        
-        # 构建文档
-        make clean || echo "清理失败，继续构建"
-        if make; then
-            echo "文档构建成功"
-            # 复制构建好的文档
-            if [ -d "documentation/html" ]; then
-                rm -rf /opt/raspberry-pi-docs/documentation/*
-                cp -r documentation/html/* /opt/raspberry-pi-docs/documentation/
-            fi
-            # 删除构建标记
-            rm -f /opt/raspberry-pi-docs/.needs_build
-        else
-            echo "文档构建失败，保留临时页面"
-        fi
-    else
-        echo "系统缺少构建工具，保留临时页面"
-    fi
-else
-    echo "文档已预构建，跳过构建步骤"
-fi
-
 # 设置正确的目录权限
 chown -R root:root /opt/raspberry-pi-docs
 
-# 替换文档中的外部链接
-find /opt/raspberry-pi-docs -name "*.html" -type f -exec sed -i 's|https://www.raspberrypi.com/documentation/|/documentation/|g' {} \;
-find /opt/raspberry-pi-docs -name "*.html" -type f -exec sed -i 's|https://www.raspberrypi.com/|/|g' {} \;
-find /opt/raspberry-pi-docs -name "*.html" -type f -exec sed -i 's|https://forums.raspberrypi.com/|/forums/|g; s|https://datasheets.raspberrypi.com/|/datasheets/|g; s|https://pip.raspberrypi.com|/pip|g; s|https://investors.raspberrypi.com/|/investors/|g; s|https://events.raspberrypi.com/|/events/|g; s|https://magazine.raspberrypi.com|/magazine/|g' {} \;
-
-# 创建 systemd 服务
-cat > /etc/systemd/system/raspberry-pi-docs.service << 'SERVICE_EOF'
-[Unit]
-Description=Raspberry Pi Documentation Server
-After=network.target
-
-[Service]
-Type=simple
-User=root
-WorkingDirectory=/opt/raspberry-pi-docs
-ExecStart=/usr/bin/python3 -m http.server 8081 --directory /opt/raspberry-pi-docs
-Restart=always
-
-[Install]
-WantedBy=multi-user.target
-SERVICE_EOF
-
-# 启用并启动服务
-systemctl daemon-reload
-systemctl enable raspberry-pi-docs.service
-systemctl start raspberry-pi-docs.service
-
-# 获取当前服务器IP地址
-IPV4_ADDR=$(hostname -I | awk '{print $1}')
-if [ -z "$IPV4_ADDR" ]; then
-    # 如果hostname -I不可用，尝试其他方法
-    IPV4_ADDR=$(ip route get 1.1.1.1 2>/dev/null | awk '{print $7; exit;}')
-    if [ -z "$IPV4_ADDR" ]; then
-        IPV4_ADDR=$(ip addr show | grep 'inet ' | grep -v '127.0.0.1' | head -n1 | awk '{print $2}' | cut -d'/' -f1)
+# 检查是否需要在安装时构建文档
+if [ -f "/opt/raspberry-pi-docs/NEEDS_BUILD" ]; then
+    echo "检测到需要构建的文档，开始构建..."
+    
+    # 检查系统是否具备构建条件
+    if command -v bundle >/dev/null 2>&1 && command -v make >/dev/null 2>&1; then
+        echo "安装构建依赖..."
+        # 尝试安装Ruby和Jekyll相关依赖
+        if command -v apt-get >/dev/null 2>&1; then
+            apt-get update
+            apt-get install -y ruby-bundler make ruby-dev build-essential
+        fi
+        
+        # 从源文件构建文档
+        if [ -d "/opt/raspberry-pi-docs-src" ]; then
+            cd /opt/raspberry-pi-docs-src
+            
+            # 安装bundle依赖
+            bundle install 2>/dev/null || echo "安装bundle依赖失败，继续构建"
+            
+            # 尝试构建文档
+            make clean || echo "清理失败，继续构建"
+            if make; then
+                echo "文档构建成功"
+                # 复制构建好的文档到目标目录
+                if [ -d "documentation/html" ]; then
+                    rm -rf /opt/raspberry-pi-docs/documentation/*
+                    cp -r documentation/html/* /opt/raspberry-pi-docs/documentation/
+                fi
+            else
+                echo "文档构建失败，保留基本文档目录"
+            fi
+        else
+            echo "找不到文档源文件，跳过构建"
+        fi
+    else
+        echo "系统缺少构建工具，无法构建文档，保留基本文档目录"
     fi
-fi
-
-if [ -z "$IPV4_ADDR" ]; then
-    IPV4_ADDR="localhost"
-fi
-
-# 尝试获取IPv6地址
-IPV6_ADDR=$(ip -6 addr show | grep 'inet6 ' | grep -v '::1' | grep -v 'fe80' | head -n1 | awk '{print $2}' | cut -d'/' -f1)
-
-echo "Raspberry Pi Documentation installed and running!"
-echo "Access the documentation at:"
-echo "  IPv4: http://$IPV4_ADDR:8081/documentation/"
-if [ -n "$IPV6_ADDR" ]; then
-    echo "  IPv6: http://[$IPV6_ADDR]:8081/documentation/"
+    
+    # 删除标记文件
+    rm -f /opt/raspberry-pi-docs/NEEDS_BUILD
+    
+    # 删除源文件目录
+    rm -rf /opt/raspberry-pi-docs-src
 fi
 
 # 创建 systemd 服务
@@ -266,16 +228,17 @@ mkdir -p $BUILD_DIR/opt/raspberry-pi-docs/documentation
 if [ -d "documentation/html" ]; then
     # 使用构建好的文档
     cp -r documentation/html/* $BUILD_DIR/opt/raspberry-pi-docs/documentation/
-    echo "已复制预编译文档"
+    echo "使用预构建的文档..."
 else
-    # 如果没有构建好的文档，复制源文件并在安装时构建
-    echo "复制文档源文件..."
-    # 创建一个标记文件表示需要构建
-    touch $BUILD_DIR/opt/raspberry-pi-docs/.needs_build
-    # 复制文档源文件
-    cp -r . $BUILD_DIR/opt/raspberry-pi-docs/documentation_src/
-    # 保留一个简单的index.html作为临时页面
-    mkdir -p $BUILD_DIR/opt/raspberry-pi-docs/documentation/
+    # 如果没有构建好的文档，将源文件复制到目标目录，以便安装时编译
+    echo "文档未成功构建，将源文件复制到安装包中，安装时将触发编译..."
+    # 创建源文件目录结构
+    mkdir -p $BUILD_DIR/opt/raspberry-pi-docs-src
+    cp -r . $BUILD_DIR/opt/raspberry-pi-docs-src/ 2>/dev/null || echo "无法复制文档源文件"
+    # 创建一个标记文件，表示需要在安装时编译
+    touch $BUILD_DIR/opt/raspberry-pi-docs/NEEDS_BUILD
+    # 创建一个基本的文档目录结构，避免服务启动失败
+    mkdir -p $BUILD_DIR/opt/raspberry-pi-docs/documentation
     echo "<html><body><p>文档正在构建中，请稍候...</p></body></html>" > $BUILD_DIR/opt/raspberry-pi-docs/documentation/index.html
 fi
 
