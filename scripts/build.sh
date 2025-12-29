@@ -51,43 +51,46 @@ set -e
 
 echo "Configuring Raspberry Pi Documentation..."
 
-# 设置正确的目录权限
-chown -R root:root /opt/raspberry-pi-docs
-
-# 检查是否存在预构建的文档，如果没有则尝试构建
-if [ ! -f "/opt/raspberry-pi-docs/index.html" ] && [ -d "/opt/raspberry-pi-docs/documentation" ]; then
-    echo "未找到预构建的文档，正在尝试构建..."
+# 检查是否需要构建文档
+if [ -f "/opt/raspberry-pi-docs/.needs_build" ]; then
+    echo "检测到需要构建文档..."
     
-    # 进入文档目录
-    cd /opt/raspberry-pi-docs/documentation || { echo "无法进入文档目录"; exit 1; }
-    
-    # 检出最新的master分支
-    git fetch origin || echo "获取远程更新失败，继续使用本地版本"
-    git reset --hard origin/master || echo "重置到远程主分支失败，使用本地版本"
-    
-    # 尝试构建文档（如果系统有必要的工具）
+    # 检查是否有构建工具
     if command -v bundle >/dev/null 2>&1 && command -v make >/dev/null 2>&1; then
-        echo "安装依赖..."
+        echo "安装依赖并构建文档..."
+        cd /opt/raspberry-pi-docs/documentation_src || { echo "无法进入文档源目录"; exit 1; }
+        
+        # 安装依赖
         bundle install 2>/dev/null || echo "安装依赖失败，继续构建"
         
-        echo "构建文档..."
+        # 构建文档
         make clean || echo "清理失败，继续构建"
         if make; then
             echo "文档构建成功"
-            # 如果构建成功，将生成的文档移到正确位置
+            # 复制构建好的文档
             if [ -d "documentation/html" ]; then
-                rm -rf /opt/raspberry-pi-docs/*
-                cp -r documentation/html/* /opt/raspberry-pi-docs/
+                rm -rf /opt/raspberry-pi-docs/documentation/*
+                cp -r documentation/html/* /opt/raspberry-pi-docs/documentation/
             fi
+            # 删除构建标记
+            rm -f /opt/raspberry-pi-docs/.needs_build
         else
-            echo "构建失败，使用原始源文件"
+            echo "文档构建失败，保留临时页面"
         fi
     else
-        echo "系统缺少构建工具，使用原始源文件"
+        echo "系统缺少构建工具，保留临时页面"
     fi
 else
-    echo "找到预构建的文档，跳过构建过程"
+    echo "文档已预构建，跳过构建步骤"
 fi
+
+# 设置正确的目录权限
+chown -R root:root /opt/raspberry-pi-docs
+
+# 替换文档中的外部链接
+find /opt/raspberry-pi-docs -name "*.html" -type f -exec sed -i 's|https://www.raspberrypi.com/documentation/|/documentation/|g' {} \;
+find /opt/raspberry-pi-docs -name "*.html" -type f -exec sed -i 's|https://www.raspberrypi.com/|/|g' {} \;
+find /opt/raspberry-pi-docs -name "*.html" -type f -exec sed -i 's|https://forums.raspberrypi.com/|/forums/|g; s|https://datasheets.raspberrypi.com/|/datasheets/|g; s|https://pip.raspberrypi.com|/pip|g; s|https://investors.raspberrypi.com/|/investors/|g; s|https://events.raspberrypi.com/|/events/|g; s|https://magazine.raspberrypi.com|/magazine/|g' {} \;
 
 # 创建 systemd 服务
 cat > /etc/systemd/system/raspberry-pi-docs.service << 'SERVICE_EOF'
@@ -105,11 +108,6 @@ Restart=always
 [Install]
 WantedBy=multi-user.target
 SERVICE_EOF
-
-# 替换文档中的外部链接
-find /opt/raspberry-pi-docs -name "*.html" -type f -exec sed -i 's|https://www.raspberrypi.com/documentation/|/documentation/|g' {} \;
-find /opt/raspberry-pi-docs -name "*.html" -type f -exec sed -i 's|https://www.raspberrypi.com/|/|g' {} \;
-find /opt/raspberry-pi-docs -name "*.html" -type f -exec sed -i 's|https://forums.raspberrypi.com/|/forums/|g; s|https://datasheets.raspberrypi.com/|/datasheets/|g; s|https://pip.raspberrypi.com|/pip|g; s|https://investors.raspberrypi.com/|/investors/|g; s|https://events.raspberrypi.com/|/events/|g; s|https://magazine.raspberrypi.com|/magazine/|g' {} \;
 
 # 启用并启动服务
 systemctl daemon-reload
@@ -268,15 +266,17 @@ mkdir -p $BUILD_DIR/opt/raspberry-pi-docs/documentation
 if [ -d "documentation/html" ]; then
     # 使用构建好的文档
     cp -r documentation/html/* $BUILD_DIR/opt/raspberry-pi-docs/documentation/
-    echo "已包含预构建的文档"
+    echo "已复制预编译文档"
 else
-    # 如果没有构建好的文档，复制源文件
-    echo "构建失败或系统缺少构建工具，复制文档源文件..."
-    # 创建目标目录
-    mkdir -p $BUILD_DIR/opt/raspberry-pi-docs/documentation
-    # 复制文档仓库中的源文件
-    cp -r . $BUILD_DIR/opt/raspberry-pi-docs/documentation/
-    echo "文档源文件已复制到安装包，将在安装时进行构建"
+    # 如果没有构建好的文档，复制源文件并在安装时构建
+    echo "复制文档源文件..."
+    # 创建一个标记文件表示需要构建
+    touch $BUILD_DIR/opt/raspberry-pi-docs/.needs_build
+    # 复制文档源文件
+    cp -r . $BUILD_DIR/opt/raspberry-pi-docs/documentation_src/
+    # 保留一个简单的index.html作为临时页面
+    mkdir -p $BUILD_DIR/opt/raspberry-pi-docs/documentation/
+    echo "<html><body><p>文档正在构建中，请稍候...</p></body></html>" > $BUILD_DIR/opt/raspberry-pi-docs/documentation/index.html
 fi
 
 # 构建DEB包
