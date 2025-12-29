@@ -67,9 +67,12 @@ if [ -f "/opt/raspberry-pi-docs/NEEDS_BUILD" ]; then
             apt-get install -y ruby-bundler make ruby-dev build-essential
         fi
         
-        # 从源文件构建文档
-        if [ -d "/opt/raspberry-pi-docs-src" ]; then
-            cd /opt/raspberry-pi-docs-src
+        # 解压源文件
+        if [ -f "/opt/raspberry-pi-docs-src.tar.gz" ]; then
+            echo "解压文档源文件..."
+            mkdir -p /opt/raspberry-pi-docs-tmp
+            cd /opt/raspberry-pi-docs-tmp
+            tar -xzf /opt/raspberry-pi-docs-src.tar.gz
             
             # 安装bundle依赖
             bundle install 2>/dev/null || echo "安装bundle依赖失败，继续构建"
@@ -86,8 +89,12 @@ if [ -f "/opt/raspberry-pi-docs/NEEDS_BUILD" ]; then
             else
                 echo "文档构建失败，保留基本文档目录"
             fi
+            
+            # 清理临时目录
+            cd /
+            rm -rf /opt/raspberry-pi-docs-tmp
         else
-            echo "找不到文档源文件，跳过构建"
+            echo "找不到文档源文件压缩包，跳过构建"
         fi
     else
         echo "系统缺少构建工具，无法构建文档，保留基本文档目录"
@@ -96,8 +103,8 @@ if [ -f "/opt/raspberry-pi-docs/NEEDS_BUILD" ]; then
     # 删除标记文件
     rm -f /opt/raspberry-pi-docs/NEEDS_BUILD
     
-    # 删除源文件目录
-    rm -rf /opt/raspberry-pi-docs-src
+    # 删除源文件压缩包
+    rm -f /opt/raspberry-pi-docs-src.tar.gz
 fi
 
 # 创建 systemd 服务
@@ -230,11 +237,18 @@ if [ -d "documentation/html" ]; then
     cp -r documentation/html/* $BUILD_DIR/opt/raspberry-pi-docs/documentation/
     echo "使用预构建的文档..."
 else
-    # 如果没有构建好的文档，将源文件复制到目标目录，以便安装时编译
-    echo "文档未成功构建，将源文件复制到安装包中，安装时将触发编译..."
-    # 创建源文件目录结构
-    mkdir -p $BUILD_DIR/opt/raspberry-pi-docs-src
-    cp -r . $BUILD_DIR/opt/raspberry-pi-docs-src/ 2>/dev/null || echo "无法复制文档源文件"
+    # 如果没有构建好的文档，将源文件压缩后复制到目标目录，以便安装时编译
+    echo "文档未成功构建，将压缩后的源文件复制到安装包中，安装时将触发编译..."
+    # 创建源文件压缩包
+    mkdir -p $BUILD_DIR/opt/raspberry-pi-docs-tmp
+    cp -r . $BUILD_DIR/opt/raspberry-pi-docs-tmp/ 2>/dev/null || echo "无法复制文档源文件"
+    # 将源文件压缩为tar.gz格式
+    cd $BUILD_DIR/opt/raspberry-pi-docs-tmp
+    tar -czf ../raspberry-pi-docs-src.tar.gz .
+    # 返回到原始目录
+    cd - > /dev/null
+    # 删除临时目录
+    rm -rf $BUILD_DIR/opt/raspberry-pi-docs-tmp
     # 创建一个标记文件，表示需要在安装时编译
     touch $BUILD_DIR/opt/raspberry-pi-docs/NEEDS_BUILD
     # 创建一个基本的文档目录结构，避免服务启动失败
