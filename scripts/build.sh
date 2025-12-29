@@ -190,8 +190,55 @@ cp ./update_docs_clean.sh $BUILD_DIR/usr/share/raspberry-pi-docs/
 chmod +x $BUILD_DIR/DEBIAN/preinst $BUILD_DIR/DEBIAN/postinst $BUILD_DIR/DEBIAN/postrm
 chmod +x $BUILD_DIR/usr/share/raspberry-pi-docs/update_docs_clean.sh
 
-# 创建一个示例文档目录结构（模拟预构建的文档）
+# 设置文档仓库路径
+DOC_REPO_DIR="$BUILD_DIR/opt/raspberry-pi-documentation"
+
+# 克隆最新的文檔
+if [ ! -d "$DOC_REPO_DIR" ]; then
+    echo "克隆文檔仓库..."
+    git clone https://github.com/raspberrypi/documentation.git "$DOC_REPO_DIR"
+fi
+
+# 进入文档目录
+cd "$DOC_REPO_DIR" || { echo "无法进入文档目录"; exit 1; }
+
+# 拉取最新更新
+git fetch origin || echo "获取远程更新失败，继续使用本地版本"
+
+# 检出最新的master分支
+git reset --hard origin/master || echo "重置到远程主分支失败，使用本地版本"
+
+# 安装依赖
+echo "安装依赖..."
+bundle install 2>/dev/null || echo "安装依赖失败，继续构建"
+
+# 尝试构建文档（如果系统有必要的工具）
+if command -v bundle >/dev/null 2>&1 && command -v make >/dev/null 2>&1; then
+    echo "构建文档..."
+    make clean || echo "清理失败，继续构建"
+    if make; then
+        echo "文档构建成功"
+    else
+        echo "构建失败，继续处理"
+    fi
+else
+    echo "系统缺少构建工具"
+fi
+
+# 创建正确的目录结构以匹配Jekyll的baseurl设置
+rm -rf $BUILD_DIR/opt/raspberry-pi-docs/documentation
 mkdir -p $BUILD_DIR/opt/raspberry-pi-docs/documentation
+
+# 检查是否有构建好的文档
+if [ -d "documentation/html" ]; then
+    # 使用构建好的文档
+    cp -r documentation/html/* $BUILD_DIR/opt/raspberry-pi-docs/documentation/
+else
+    # 如果没有构建好的文档，使用预构建的文档
+    echo "使用预构建的文档..."
+    # 复制文档仓库中的源文件作为备选
+    cp -r . $BUILD_DIR/opt/raspberry-pi-docs/documentation/ 2>/dev/null || echo "无法复制源文档，服务将显示空目录"
+fi
 
 # 构建DEB包
 cd /tmp
