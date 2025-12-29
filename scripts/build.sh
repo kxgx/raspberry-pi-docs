@@ -206,11 +206,11 @@ cd /tmp
 dpkg-deb --build raspberry-pi-docs-build
 
 # 移动DEB包到项目根目录
-mkdir -p deb-pkg
-  mv /tmp/raspberry-pi-docs-build.deb ./deb-pkg/raspberry-pi-docs-latest.deb
+mkdir -p ./deb-pkg
+mv /tmp/raspberry-pi-docs-build.deb ./deb-pkg/raspberry-pi-docs-latest.deb
 
-# 复制到预期的输出目录
-mkdir -p /home/runner/work/raspberry-pi-docs/raspberry-pi-docs/deb-pkg 2>/dev/null || true  # For GitHub Actions
-cp /tmp/raspberry-pi-docs-build/raspberry-pi-docs-latest.deb ./deb-pkg/raspberry-pi-docs-latest.deb 2>/dev/null || true
+# 确保在GitHub Actions环境中也能正确复制文件
+mkdir -p /home/runner/work/raspberry-pi-docs/raspberry-pi-docs/deb-pkg 2>/dev/null || true
+cp ./deb-pkg/raspberry-pi-docs-latest.deb /home/runner/work/raspberry-pi-docs/raspberry-pi-docs/deb-pkg/raspberry-pi-docs-latest.deb 2>/dev/null || true
 
 echo "构建完成！DEB包已保存到 ./deb-pkg/raspberry-pi-docs-latest.deb"
