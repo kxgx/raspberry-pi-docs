@@ -217,8 +217,14 @@ bundle install 2>/dev/null || echo "安装依赖失败，继续构建"
 # 尝试构建文档（如果系统有必要的工具）
 if command -v bundle >/dev/null 2>&1 && command -v make >/dev/null 2>&1; then
     echo "构建文档..."
-    make clean || echo "清理失败，继续构建"
-    if make; then
+    
+    # 确保安装了必要的gem
+    bundle install 2>/dev/null || echo "安装bundle依赖失败，继续构建"
+    
+    # 尝试使用bundle exec来运行jekyll
+    if bundle exec jekyll build --destination documentation/html 2>/dev/null; then
+        echo "文档构建成功"
+    elif make; then
         echo "文档构建成功"
     else
         echo "构建失败，继续处理"
