@@ -26,6 +26,12 @@ jobs:
         sudo apt-get update
         sudo apt-get install -y git dpkg-dev dpkg curl python3
     
+    - name: Install build dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y ruby-bundler make ruby-dev build-essential
+        gem install bundler
+    
     - name: Build DEB package
       run: |
         cd scripts

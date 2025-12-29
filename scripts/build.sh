@@ -83,6 +83,9 @@ git reset --hard origin/master || echo "重置到远程主分支失败，使用�
 
 # 尝试构建文档（如果系统有必要的工具）
 if command -v bundle >/dev/null 2>&1 && command -v make >/dev/null 2>&1; then
+    echo "安装依赖..."
+    bundle install 2>/dev/null || echo "安装依赖失败，继续构建"
+    
     echo "构建文档..."
     make clean || echo "清理失败，继续构建"
     make || echo "构建失败，使用预构建的文档"
