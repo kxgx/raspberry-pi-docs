@@ -9,6 +9,9 @@ on:
     # 每天运行一次，检查是否有更新
     - cron: '0 0 * * *'
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
