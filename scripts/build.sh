@@ -92,7 +92,22 @@ fi
 rm -rf /opt/raspberry-pi-docs-new/documentation
 mkdir -p /opt/raspberry-pi-docs-new/documentation
 
-# 檢查是否有构建好的文档
+# 尝试构建文档（如果系统有必要的工具）
+if command -v bundle >/dev/null 2>&1 && command -v make >/dev/null 2>&1; then
+    echo "构建文档..."
+    # 清理之前的构建
+    make clean 2>/dev/null || echo "清理失败，继续构建"
+    # 执行构建
+    if make; then
+        echo "文档构建成功"
+    else
+        echo "构建失败，尝试使用预构建的文档"
+    fi
+else
+    echo "系统缺少构建工具，尝试使用预构建的文档"
+fi
+
+# 检查是否有构建好的文档
 if [ -d "documentation/html" ]; then
     # 使用构建好的文档
     cp -r documentation/html/* /opt/raspberry-pi-docs-new/documentation/
@@ -102,8 +117,7 @@ else
         echo "使用预构建的文档..."
         cp -r /opt/raspberry-pi-docs/documentation/* /opt/raspberry-pi-docs-new/documentation/ 2>/dev/null || true
     else
-        echo "错误：没有可用的文档"
-        exit 1
+        echo "警告：没有可用的文档，服务将显示空目录"
     fi
 fi
 
